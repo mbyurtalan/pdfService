@@ -1,4 +1,3 @@
 Flask
+pypdf
 gunicorn
-python-docx
-docxcompose

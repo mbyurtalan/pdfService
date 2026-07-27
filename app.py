@@ -1,68 +1,74 @@
-from flask import Flask, request, jsonify, send_file
-from werkzeug.utils import secure_filename
-from docxcompose.composer import Composer
-from docx import Document
+from flask import Flask, request, send_file, jsonify
+from pypdf import PdfWriter
 import tempfile
 import os
-import shutil
+import re
+import json
+import base64
 
 app = Flask(__name__)
 
-@app.route("/", methods=["GET"])
-def health_check():
-    return jsonify({"status": "ok", "message": "DOCX merge API is running"})
+
+def leading_number(filename):
+    match = re.match(r"^\s*(\d+)", filename)
+    return int(match.group(1)) if match else 999999999
 
 
-@app.route("/merge", methods=["POST"])
-def merge_docx():
-    files = request.files.getlist("files")
-
-    if not files:
-        return jsonify({"error": "No files provided. Use form-data key: files"}), 400
-
-    temp_dir = tempfile.mkdtemp()
-    saved_files = []
+@app.route("/merge-pdf", methods=["POST"])
+def merge_pdf():
 
     try:
-        for file in files:
-            filename = secure_filename(file.filename)
+        files = request.get_json(force=True)
 
-            if not filename:
-                return jsonify({"error": "One uploaded file has an empty filename"}), 400
+        # tolerate array of JSON strings
+        normalized = []
 
-            if not filename.lower().endswith(".docx"):
-                return jsonify({"error": f"{filename} is not a .docx file"}), 400
+        for item in files:
+            if isinstance(item, str):
+                item = json.loads(item)
 
-            file_path = os.path.join(temp_dir, filename)
-            file.save(file_path)
-            saved_files.append(file_path)
+            normalized.append(item)
 
-        saved_files.sort()
-
-        master = Document(saved_files[0])
-        composer = Composer(master)
-
-        for docx_path in saved_files[1:]:
-            composer.append(Document(docx_path))
-
-        merged_path = os.path.join(temp_dir, "merged.docx")
-        composer.save(merged_path)
-
-        return send_file(
-            merged_path,
-            as_attachment=True,
-            download_name="merged.docx",
-            mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        # sort by leading number
+        normalized.sort(
+            key=lambda x: leading_number(x["filename"])
         )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+
+            pdf_paths = []
+
+            for item in normalized:
+
+                pdf_path = os.path.join(
+                    tmpdir,
+                    os.path.basename(item["filename"])
+                )
+
+                with open(pdf_path, "wb") as f:
+                    f.write(base64.b64decode(item["content"]))
+
+                pdf_paths.append(pdf_path)
+
+            merged_path = os.path.join(tmpdir, "merged.pdf")
+
+            writer = PdfWriter()
+
+            for pdf in pdf_paths:
+                writer.append(pdf)
+
+            with open(merged_path, "wb") as f:
+                writer.write(f)
+
+            return send_file(
+                merged_path,
+                mimetype="application/pdf",
+                as_attachment=True,
+                download_name="merged.pdf"
+            )
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-    finally:
-        # Note: cleanup happens after response handling can be tricky with send_file.
-        # For small/simple usage this is usually fine locally, but Render may still need the file while streaming.
-        # If you get file-not-found issues, remove this line and rely on ephemeral temp storage.
-        pass
 
 
 if __name__ == "__main__":
