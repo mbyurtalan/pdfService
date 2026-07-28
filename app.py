@@ -13,6 +13,9 @@ def leading_number(filename):
     match = re.match(r"^\s*(\d+)", filename)
     return int(match.group(1)) if match else 999999999
 
+@app.route('/', methods = ['GET'])
+def status():
+    return jsonify({'status': 'ok'}), 200
 
 @app.route("/merge-pdf", methods=["POST"])
 def merge_pdf():
