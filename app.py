@@ -10,7 +10,7 @@ app = Flask(__name__)
 
 
 def leading_number(filename):
-    match = re.match(r"^\s*(\d+)", filename)
+    match = re.match(r"^page_(\d+)", filename, re.IGNORECASE)
     return int(match.group(1)) if match else 999999999
 
 @app.route('/', methods = ['GET'])
