@@ -58,6 +58,7 @@ def apply_regex():
         })
 
     except Exception as e:
+        print(e)
         return jsonify({"error": str(e)}), 500
 
 @app.route("/merge-pdf", methods=["POST"])
