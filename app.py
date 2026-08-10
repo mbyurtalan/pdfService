@@ -26,8 +26,7 @@ def apply_regex():
     print("RAW LENGTH:", len(request.data))
     print("FIRST 200 BYTES:", request.data[:200])
     try:
-        payload = request.get_json(force=True)
-        doc_bytes = base64.b64decode(payload["$content"])
+        doc_bytes = base64.b64decode(request.data)
         doc = Document(io.BytesIO(doc_bytes))
         text_parts = []
 
