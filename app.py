@@ -22,7 +22,9 @@ def status():
 @app.route("/apply-regex", methods=["POST"])
 def apply_regex():
     try:
-        doc = Document(io.BytesIO(request.data))
+        payload = request.get_json()
+        doc_bytes = base64.b64decode(payload["$content"])
+        doc = Document(io.BytesIO(doc_bytes))
         text_parts = []
 
         # Normal paragraphs
