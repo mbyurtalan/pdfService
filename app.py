@@ -5,6 +5,7 @@ import os
 import re
 import json
 import base64
+from docx import Document
 
 app = Flask(__name__)
 
@@ -16,6 +17,51 @@ def leading_number(filename):
 @app.route('/', methods = ['GET'])
 def status():
     return jsonify({'status': 'ok'}), 200
+
+@app.route("/apply-regex", methods=["POST"])
+def apply_regex():
+    try:
+        if "file" not in request.files:
+            return jsonify({"error": "No file uploaded"}), 400
+
+        file = request.files["file"]
+
+        doc = Document(io.BytesIO(file.read()))
+
+        text_parts = []
+
+        # Normal paragraphs
+        for p in doc.paragraphs:
+            text_parts.append(p.text)
+
+        # Tables
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    text_parts.append(cell.text)
+
+        full_text = "\n".join(text_parts)
+        match = re.search(
+            r"SHEET\s*CONTD\.?\s*([A-Z])\s*(\d+)",
+            full_text,
+            re.IGNORECASE | re.DOTALL
+        )
+
+        if not match:
+            return jsonify({
+                "found": False,
+                "page": None,
+                "sheet": None
+            })
+
+        return jsonify({
+            "found": True,
+            "page": match.group(1).strip(),
+            "sheet": int(match.group(2))
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/merge-pdf", methods=["POST"])
 def merge_pdf():
