@@ -2,6 +2,7 @@ from flask import Flask, request, send_file, jsonify
 from pypdf import PdfWriter
 import tempfile
 import os
+import io
 import re
 import json
 import base64
@@ -21,13 +22,7 @@ def status():
 @app.route("/apply-regex", methods=["POST"])
 def apply_regex():
     try:
-        if "file" not in request.files:
-            return jsonify({"error": "No file uploaded"}), 400
-
-        file = request.files["file"]
-
-        doc = Document(io.BytesIO(file.read()))
-
+        doc = Document(io.BytesIO(request.data))
         text_parts = []
 
         # Normal paragraphs
